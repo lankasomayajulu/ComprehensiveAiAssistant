@@ -1,0 +1,23 @@
+- Your first task is to plan the project.
+- The backend database for this project shall be using Mongodb.
+- The project will be a comprehensive AI Assistant which will help the users in coding or creative tasks
+- There can be multiple users in the system. All the users shall be in the users collection inside Mongodb. 
+- Initially when the project is created, it should also create a database in Mongodb called AI_Assistant_db and inside that there should be a collection called users.
+- Initially there should also be a user called admin with password admin.
+- The admin should be able to create new users and also change their passwords.
+- There should be a specific user management screen for admin user only.
+- Users can have different roles. For now let us restrict it to administrator and normal_user.
+- Each user including admin should have a My Profile Screen. There he should have "Change Password" option. 
+- My Profile Screen should have a left panel with different user actions available and the right panel with the selected action's content.
+- All the Screens, except login, should actually have a header and status bar and in between, there should be a scrollable content area for the screen.
+- The header should have a icon at the left and user avatar with dropdown menu to the right. The dropdown should bring 2 options for now, My Profile and Logout.
+- All the screens should also have an option to go back to home screen, and also if there is a scroll bar for the content, then there should be a move to top icon.
+- Once user logs in then it should go to dashboard page.
+- Currently dashboard page should have nothing. Later, I will fill this screen.
+- My Profile should have options for "User Settings", "Change Password".
+- Each user can fill in their Openrouter API key, Google AI Key, and save it. All the settings shall be saved in user_settings collection.
+- Make sure to also provide a good color schema for the application, which I can opt to change later. Let the color schema be easily modifiable later using just css.
+- Make sure the login screen also is good looking with Icon at the top, a area to provide user name and password, login button.
+- The login screen should do normal user authentication.
+- The login screen should also have normal validation. There shall be no sign up for this application. All the users shall be controlled by admin.
+- It will not have normal Email Validations or anything.
