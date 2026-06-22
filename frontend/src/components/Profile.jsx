@@ -4,7 +4,7 @@ import ChangePassword from "./ChangePassword";
 import UserManagement from "./UserManagement";
 import { Settings, Lock, Users } from "lucide-react";
 
-export default function Profile({ user, token }) {
+export default function Profile({ user, token, theme, setTheme }) {
   const [activeTab, setActiveTab] = useState("settings");
 
   return (
@@ -42,7 +42,7 @@ export default function Profile({ user, token }) {
       </aside>
 
       <section className="profile-content-pane">
-        {activeTab === "settings" && <UserSettings token={token} />}
+        {activeTab === "settings" && <UserSettings token={token} theme={theme} setTheme={setTheme} />}
         {activeTab === "password" && <ChangePassword token={token} />}
         {activeTab === "management" && user?.role === "administrator" && (
           <UserManagement token={token} />

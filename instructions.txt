@@ -1,45 +1,13 @@
-- This will be your second task for the application.
-- This application will implement a Kanban type custom application. The application is a comprehensive, testing, reporting, planning, implementing different kinds of projects.
-- A Project can be of type "Story Creation", "Coding", "Audio Generation", "Image Generation", "Video Generation". Additional Project types can be added later.
-- Only Coding projects will work on real file system. A Coding Project when created will ask for the project name, the root folder of the project, the project description.
-- All Other projects will make use of Virtual Files and also some real files as necessary. For example, "Story Creation" will only have Virtual Files. Others will have actual files. I will talk about them in a while.
-- Please take a look at the following.
-- Each Project will automatically have a Kanban Board. In this board, I should be able to create Cards.
-- The cards will go through the phases of "Not Started", "In Development", "Testing", "Review" and "Completed". For different phases, have a different color scheme and all the cards should actually show a border in that color.
-- Each Card should have a component, which will be visible in the "Board Tab" when I click on the card, with a button to "Go Back" to the Board Page. Also all the cards should be draggable to different phases. I should be able to click on any part of the card and drag it to different phase.
-- Each card should be a discussion thread, where I can discuss in the thread and other users can reply or there should be a button called "Generate AI Response"
-- All the "AI Responses" will work based on the Project type and the files it is working with. They will make use of the MCP server to generate the response. For now all the AI should work with "Openrouter" using the user's Openrouter key.
-- Any AI related work should be logged with the user who generated the request, the input tokens, the output tokens, the model used, the date and time it was requested, the cost of the AI request, the finish reason.
-- I should be able to assign other users to a project and they will be able to see that project and associated Kanban Board.
-- Access to a project should be decided by either the user creating the project or admin.
-- For example, if I create a Project, then in the Project Settings, I should be able to add contributing users and they should be able to see the Project, its cards/tickets in the Kanban board, They should be able to add Cards, move cards, etc.
-- The Project Settings should include "Default Openrouter Model".
-- A Project can be created in the dashboard page, and user should be able to see the project page in a card. The dashboard will have a lot of cards, for now let there be a large card, occupying half the width on the dashboard page. Let there be 2 more dummy cards, which occupy the remaining dashboard. The remaining cards should appear one below the other, while the one main card should be at the left and should occupy half the width and also the entire height of the content area.
-- The left card should be a carousal style. The Carousal items should be manually scrollable. The first Carousal Item should be list of Projects, with the project name (Which can be trimmed to see that it does not cross the region, the author, the date it was created, number of contributing users.
-- When I click on the Project Page, it should take me to the Project Page, and there you should see 3 tabs. The first tab is the Kanban Board, the second tab should be the Play Area, the third tab should be logs.
-- Please see different project types below.
+- This will be the Sprint 5 of the Application.
+- There are still some changes to the Story Creation Project that I want in the application.
 
-1. Story Creation Project.
-a. It should have a board as usual. When i try to create a Story Creation Project, it should ask for "Story Type" which should have options for "Action", "Adventure", "Erotic", "Fantasy", "Thriller", "Horror", "Romance", "Comedy", "Psychological Thriller", etc. I should be able to add multiple options here. Then there should be language, and languages allowed will be "English", "Telugu", "Hindi", "Kannada". It should also ask for the "Story Name", "Story Description", "Number of Chapters". I should not be able to change the language, name and description later, but I should be able to change other things. Also except for name and description, others should be saved as project settings.
-b. The Story Creation will have a list of Virtual Folders, which are just an entry in the Mongodb's VirtualFolder collection, with name and description, with name being mandatory and also unique for a project, the description is optional.
-c. Each Virtual Folder can have a list of VirtualFiles. The VirtualFiles also have a name and content. Both name and content should be stored in an encrypted format in Mongodb.
-d. A Virtual File cannot exist without a parent VirtualFolder. This is applicable to all the ProjectTypes, except Coding Project, where we use actual files instead of virtual files.
-e. The Virtual File content in case of "Story Creation" is just a markdown text.
-f. I should be able to view all the project related Files and Folders in Play Area Tab.
-g. The Play Area tab should contain 2 regions/panels. The left Panel and Right Panel.
-h. The left Panel shall contain 2 tabs. The Settings Tab, the Explorer Tab.
-i. In Explorer, I should be able to drag and drop Virtual Files between different folders or within the same folder, I should be able to move them up or down.
-j. Also besides all the files, there should be a checkbox. For now don't do anything with this checkbox. I will explain what to do with it later on.
-k. Also there should be a concept of Active File. Whenever I open the Project for the first time, the Active file should be the first file in the project. If there are no files, then the active file is null. 
-j. The Settings Tab should contain Openrouter settings for now. It should contain Favourite Models Combobox. This should be a multiselect combobox, in which I should be able to select multiple Openrouter Models. The models should be listed in Alphabetical order. For all Openrouter calls, you should use the user's Openrouter key.
-k. There should be a default Model Combobox, which should show all the favourite models and I should be able to select one. 
-l. There should be a reasoning length combobox, and it should have "None", "Minimal" and other options as applicable for Openrouter. The default should be "Minimal".
-m. There should be output length and the options should be "Very Short", "Short", "Medium", "Large", "Extra Large", "Max", "Super Max". The values associated with these options should be 1024, 2048, 4096, 8192, 16384, 32768, 65536.
-n. Finally there should be a save button, which should save the project settings to the database. However, even without saving, any AI requests should use the selected options in the current application.
-o. A Story Creation Project should also have the following settings by default and show up as files in the project's Prompts Folder. The Prompts folder will not exist in the database, and this is a special folder and a user cannot create another Prompts Folder. This prompts folder will show the following files, "Continue System Prompt", "Continue Prompt", "Revise System Prompt", "Revise Prompt". These are not actual Virtual Files, but are project settings.
-o. The Right Panel will have a top bar with actions. Currently all the actions should be "Continue", "Revise", "Plan Chapter", "Create Scene Beats", "Expand Chapter". I will add more actions later on. Also for now when a user clicks on these, let it show a Modal Alert. Let this be a customized Modal Alert dialog. This modal alert dialog will be used later a lot, so let it be a common shared component. 
-p. The right panel will also have panel below the topbar with 2 tabs. The tabs are Plain Text and also Preview. The Plain Text will show a text area with active file's content. I should be able to edit the active file content. Also please note that all the files should have auto save. That is if I select a different file, it should autosave current file before moving to a new file. In Preview Mode, I cannot edit the file.
-
-2. Coding Project
-a. The coding project should work like a coding agent with Context Driven Development. Please try to use GSD and MCP and try to develop as much as possible in this kind of Coding Project Development. Assume that the path provided by the user could be a normal windows/linux path, or a network path and that the backend has access to it.
-b. I should be able to create tickets, work with the given file system, create/edit/delete files from the backend in the given path and so on, based on the agent's review and suggestions.
+### Changes required.
+- When generating the responses from the board, the AI replies in English about the tasks it has done. I don't want it like that. I want it to actually create 2 replies, saying that the response was obtained from AI and also the AI response content.
+- I should be able to look at the response content directly from the card instead of moving to the play area.
+- I should be able to delete folders from the play area if they are empty.
+- In files, If I change the active file without saving the content, the modified contents of the active file are lost. Instead, I want an autosave kind of option. It should automatically save the content.
+- I should be able to delete responses in the card thread, if I am admin or the person raising that card or if the response belongs to myself.
+- Make sure that the card real estate is properly managed. Now I see that there are 2 back buttons. Instead from card view, there should be only one back button which goes back to the Board View. Also make sure that margins are a little less. Let the header contain a sub heading. If we are viewing a card or board view, then the heading can take some amount of data. Currently there is a lot of information and a lot of real estate is not managed well. I want to see more data in the limited area I have.
+- Also for the application, make sure that the token expiry is set to 1 week with refresh sessions or tokens so that I need not worry about logging in again and again.
+- Create a shared component called icon button and use Icon buttons for most of the actions, as it will reduce the real estate usage and also look good. Try to use Acronyms, Font Awesome Icons, etc for Icon Buttons.
+- Also in some of the cases, I am not getting the kind of output I want from the AI. It is not following all my instructions provided. Please try to use GSD to actually make sure that the instructions are followed in the best possible manner and there is no AI compacting or laziness involved in following directions.

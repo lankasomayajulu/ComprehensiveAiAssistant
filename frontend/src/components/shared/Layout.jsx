@@ -3,7 +3,7 @@ import Header from "./Header";
 import StatusBar from "./StatusBar";
 import ScrollToTop from "./ScrollToTop";
 
-export default function Layout({ children, user, currentScreen, navigateTo, onLogout }) {
+export default function Layout({ children, user, currentScreen, navigateTo, onLogout, theme, setTheme, token }) {
   const scrollContainerRef = useRef(null);
 
   return (
@@ -13,6 +13,9 @@ export default function Layout({ children, user, currentScreen, navigateTo, onLo
         currentScreen={currentScreen}
         navigateTo={navigateTo}
         onLogout={onLogout}
+        theme={theme}
+        setTheme={setTheme}
+        token={token}
       />
       
       <main className="app-main">

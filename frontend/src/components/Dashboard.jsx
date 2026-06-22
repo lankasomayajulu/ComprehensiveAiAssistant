@@ -4,14 +4,14 @@ import {
   ChevronLeft, ChevronRight, Plus, Users, Calendar, Clock, AlertCircle, X
 } from "lucide-react";
 
-export default function Dashboard({ onOpenProject, token }) {
+export default function Dashboard({ onOpenProject, token, user }) {
   const [projects, setProjects] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   
   // Carousel State
   const [carouselIndex, setCarouselIndex] = useState(0);
-  const totalSlides = 2; // Slide 1: Projects list, Slide 2: AI Usage & Stats
+  const totalSlides = user?.role === "administrator" ? 2 : 1; // Slide 1: Projects list, Slide 2: AI Usage & Stats
 
   // Project Creation Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -36,10 +36,29 @@ export default function Dashboard({ onOpenProject, token }) {
     "Horror", "Romance", "Comedy", "Psychological Thriller"
   ];
 
+  const [globalStats, setGlobalStats] = useState({ by_project: [], by_user: [] });
+
   // Load Projects from API
   useEffect(() => {
     fetchProjects();
-  }, []);
+    if (user?.role === "administrator") {
+      fetchGlobalStats();
+    }
+  }, [user]);
+
+  const fetchGlobalStats = async () => {
+    try {
+      const res = await fetch("http://localhost:8000/api/projects/admin/ai-logs-stats", {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGlobalStats(data);
+      }
+    } catch (e) {
+      console.error("Failed to load global admin stats", e);
+    }
+  };
 
   const fetchProjects = async () => {
     setIsLoading(true);
@@ -159,6 +178,11 @@ export default function Dashboard({ onOpenProject, token }) {
     return name.length > 25 ? name.substring(0, 25) + "..." : name;
   };
 
+  const formatCost = (cost) => {
+    if (cost === undefined || cost === null) return "$0.000000";
+    return `$${parseFloat(cost).toFixed(6)}`;
+  };
+
   return (
     <div className="dashboard-container">
       {/* Left Column: Carousel style card */}
@@ -244,35 +268,84 @@ export default function Dashboard({ onOpenProject, token }) {
               </div>
 
               {/* Slide 2: AI Statistics / Analytics */}
-              <div className="carousel-slide" style={{ justifyContent: "center" }}>
-                <h3 className="pane-title" style={{ marginBottom: "1rem" }}>System Intelligence Stats</h3>
-                <p className="pane-subtitle">Global OpenRouter analytics and invocation statistics across all active workspaces.</p>
+              <div className="carousel-slide" style={{ display: "flex", flexDirection: "column", gap: "1rem", padding: "1.5rem" }}>
+                <div>
+                  <h3 className="pane-title" style={{ margin: 0 }}>System Intelligence Stats</h3>
+                  <p className="pane-subtitle" style={{ margin: 0, marginTop: "0.25rem" }}>Global OpenRouter analytics and invocation statistics across all active workspaces.</p>
+                </div>
                 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
-                  <div className="dummy-card" style={{ padding: "1.25rem", backgroundColor: "rgba(255,255,255,0.02)" }}>
-                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase" }}>OpenRouter Invocations</span>
-                    <strong style={{ fontSize: "1.75rem", color: "var(--primary-hover)", marginTop: "0.25rem" }}>
-                      {projects.length * 8 + 12}
-                    </strong>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", flex: 1, minHeight: 0 }}>
+                  
+                  {/* Left Column: AI Logs by Project */}
+                  <div className="dummy-card" style={{ padding: "1.25rem", display: "flex", flexDirection: "column", gap: "1rem", backgroundColor: "rgba(255,255,255,0.01)", border: "1px solid var(--border-color)", borderRadius: "10px", minHeight: 0 }}>
+                    <h4 style={{ fontSize: "0.8rem", textTransform: "uppercase", fontWeight: "700", color: "var(--text-muted)", margin: 0 }}>AI Logs by Project</h4>
+                    
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", overflowY: "auto", flex: 1 }}>
+                      {(!globalStats.by_project || globalStats.by_project.length === 0) ? (
+                        <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontStyle: "italic", margin: "auto" }}>No data recorded</p>
+                      ) : (
+                        (() => {
+                          const maxCount = Math.max(...globalStats.by_project.map(p => p.count), 1);
+                          return globalStats.by_project.map((p, idx) => {
+                            const pct = (p.count / maxCount) * 100;
+                            return (
+                              <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
+                                  <span style={{ fontWeight: "600", color: "var(--text-primary)" }}>{p.project_name}</span>
+                                  <span style={{ color: "var(--text-muted)" }}>{p.count} calls ({formatCost(p.total_cost)})</span>
+                                </div>
+                                <div style={{ height: "8px", backgroundColor: "rgba(255,255,255,0.03)", borderRadius: "4px", overflow: "hidden" }}>
+                                  <div style={{ 
+                                    width: `${pct}%`, 
+                                    height: "100%", 
+                                    background: "linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%)", 
+                                    borderRadius: "4px",
+                                    transition: "width 0.8s cubic-bezier(0.4, 0, 0.2, 1)"
+                                  }} />
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()
+                      )}
+                    </div>
                   </div>
-                  <div className="dummy-card" style={{ padding: "1.25rem", backgroundColor: "rgba(255,255,255,0.02)" }}>
-                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Calculated Cost</span>
-                    <strong style={{ fontSize: "1.75rem", color: "var(--accent)", marginTop: "0.25rem" }}>
-                      ${(projects.length * 0.024 + 0.05).toFixed(4)}
-                    </strong>
+
+                  {/* Right Column: AI Logs by User */}
+                  <div className="dummy-card" style={{ padding: "1.25rem", display: "flex", flexDirection: "column", gap: "1rem", backgroundColor: "rgba(255,255,255,0.01)", border: "1px solid var(--border-color)", borderRadius: "10px", minHeight: 0 }}>
+                    <h4 style={{ fontSize: "0.8rem", textTransform: "uppercase", fontWeight: "700", color: "var(--text-muted)", margin: 0 }}>AI Logs by User</h4>
+                    
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", overflowY: "auto", flex: 1 }}>
+                      {(!globalStats.by_user || globalStats.by_user.length === 0) ? (
+                        <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontStyle: "italic", margin: "auto" }}>No data recorded</p>
+                      ) : (
+                        (() => {
+                          const maxCount = Math.max(...globalStats.by_user.map(u => u.count), 1);
+                          return globalStats.by_user.map((u, idx) => {
+                            const pct = (u.count / maxCount) * 100;
+                            return (
+                              <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem" }}>
+                                  <span style={{ fontWeight: "600", color: "var(--text-primary)" }}>@{u.username}</span>
+                                  <span style={{ color: "var(--text-muted)" }}>{u.count} calls ({formatCost(u.total_cost)})</span>
+                                </div>
+                                <div style={{ height: "8px", backgroundColor: "rgba(255,255,255,0.03)", borderRadius: "4px", overflow: "hidden" }}>
+                                  <div style={{ 
+                                    width: `${pct}%`, 
+                                    height: "100%", 
+                                    background: "linear-gradient(90deg, #ec4899 0%, #8b5cf6 100%)", 
+                                    borderRadius: "4px",
+                                    transition: "width 0.8s cubic-bezier(0.4, 0, 0.2, 1)"
+                                  }} />
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()
+                      )}
+                    </div>
                   </div>
-                  <div className="dummy-card" style={{ padding: "1.25rem", backgroundColor: "rgba(255,255,255,0.02)" }}>
-                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Active Model context</span>
-                    <strong style={{ fontSize: "0.95rem", color: "var(--text-primary)", marginTop: "0.25rem" }}>
-                      gemini-2.5-flash
-                    </strong>
-                  </div>
-                  <div className="dummy-card" style={{ padding: "1.25rem", backgroundColor: "rgba(255,255,255,0.02)" }}>
-                    <span style={{ fontSize: "0.75rem", color: "var(--text-muted)", textTransform: "uppercase" }}>Avg Latency</span>
-                    <strong style={{ fontSize: "0.95rem", color: "var(--text-primary)", marginTop: "0.25rem" }}>
-                      1.84 seconds
-                    </strong>
-                  </div>
+                  
                 </div>
               </div>
             </div>

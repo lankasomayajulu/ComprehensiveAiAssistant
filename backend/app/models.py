@@ -20,6 +20,7 @@ class AdminPasswordChange(BaseModel):
 class UserSettingsUpdate(BaseModel):
     openrouter_api_key: Optional[str] = Field("", max_length=200)
     google_ai_key: Optional[str] = Field("", max_length=200)
+    theme: Optional[str] = Field("dark", max_length=20)
 
 class UserResponse(BaseModel):
     username: str
@@ -28,6 +29,10 @@ class UserResponse(BaseModel):
 class UserSettingsResponse(BaseModel):
     openrouter_api_key: str
     google_ai_key: str
+    theme: str
+
+class AIResponsePayload(BaseModel):
+    current_model: Optional[str] = ""
 
 class TokenResponse(BaseModel):
     access_token: str
@@ -153,4 +158,10 @@ class AILogResponse(BaseModel):
     cost: float
     finish_reason: str
     timestamp: str
+    request_text: Optional[str] = None
+    output_text: Optional[str] = None
+
+class StoryContinuePayload(BaseModel):
+    active_file_id: str
+    selected_file_ids: List[str]
 

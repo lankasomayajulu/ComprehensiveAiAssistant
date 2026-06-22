@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Key, Save, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
 
-export default function UserSettings({ token }) {
+export default function UserSettings({ token, theme, setTheme }) {
   const [openrouterKey, setOpenrouterKey] = useState("");
   const [googleKey, setGoogleKey] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,6 +26,9 @@ export default function UserSettings({ token }) {
         const data = await response.json();
         setOpenrouterKey(data.openrouter_api_key || "");
         setGoogleKey(data.google_ai_key || "");
+        if (data.theme) {
+          setTheme(data.theme);
+        }
       } catch (err) {
         setError(err.message);
       } finally {
@@ -34,7 +37,7 @@ export default function UserSettings({ token }) {
     };
 
     fetchSettings();
-  }, [token]);
+  }, [token, setTheme]);
 
   const handleSave = async (e) => {
     e.preventDefault();
@@ -51,7 +54,8 @@ export default function UserSettings({ token }) {
         },
         body: JSON.stringify({
           openrouter_api_key: openrouterKey,
-          google_ai_key: googleKey
+          google_ai_key: googleKey,
+          theme: theme
         })
       });
 
@@ -59,7 +63,7 @@ export default function UserSettings({ token }) {
         throw new Error("Failed to save settings.");
       }
 
-      setSuccess("API keys saved successfully.");
+      setSuccess("Settings saved successfully.");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -79,7 +83,7 @@ export default function UserSettings({ token }) {
   return (
     <div>
       <h2 className="pane-title">User Settings</h2>
-      <p className="pane-subtitle">Manage external AI provider API credentials. These keys are used for code generation and creative assistant operations.</p>
+      <p className="pane-subtitle">Manage external AI provider API credentials and application settings. These credentials are secure and encrypted.</p>
       
       <form onSubmit={handleSave} className="glass-card" style={{ padding: "2rem", maxWidth: "600px" }}>
         {error && (
@@ -112,7 +116,7 @@ export default function UserSettings({ token }) {
           </div>
         </div>
 
-        <div className="form-group" style={{ marginBottom: "2rem" }}>
+        <div className="form-group" style={{ marginBottom: "1.5rem" }}>
           <label className="form-label" htmlFor="google-key">Google AI API Key</label>
           <div className="input-container">
             <Key className="input-icon" />
@@ -128,6 +132,21 @@ export default function UserSettings({ token }) {
           </div>
         </div>
 
+        <div className="form-group" style={{ marginBottom: "2rem" }}>
+          <label className="form-label" htmlFor="app-theme">Theme Mode</label>
+          <select
+            id="app-theme"
+            className="form-input"
+            style={{ paddingLeft: "1rem" }}
+            value={theme}
+            onChange={(e) => setTheme(e.target.value)}
+            disabled={saving}
+          >
+            <option value="dark">Dark Theme</option>
+            <option value="light">Light Theme</option>
+          </select>
+        </div>
+
         <button type="submit" className="btn" style={{ width: "auto", display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.75rem 2rem" }} disabled={saving}>
           {saving ? (
             <>
@@ -137,7 +156,7 @@ export default function UserSettings({ token }) {
           ) : (
             <>
               <Save size={16} />
-              <span>Save Keys</span>
+              <span>Save Settings</span>
             </>
           )}
         </button>

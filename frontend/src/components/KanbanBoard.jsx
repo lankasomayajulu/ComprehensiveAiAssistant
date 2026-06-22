@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Plus, MessageSquare, ArrowLeft, Send, Sparkles, Trash2, Calendar, User, Clock } from "lucide-react";
 
-export default function KanbanBoard({ projectId, token, user, project }) {
+export default function KanbanBoard({ projectId, token, user, project, selectedCard, setSelectedCard }) {
   const [cards, setCards] = useState([]);
-  const [selectedCard, setSelectedCard] = useState(null);
   const [isNewCardModalOpen, setIsNewCardModalOpen] = useState(false);
   const [newCardTitle, setNewCardTitle] = useState("");
   const [newCardDesc, setNewCardDesc] = useState("");
@@ -13,6 +12,12 @@ export default function KanbanBoard({ projectId, token, user, project }) {
   const [newComment, setNewComment] = useState("");
   const [isAiLoading, setIsAiLoading] = useState(false);
   
+  // Inline edit states
+  const [isEditing, setIsEditing] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDesc, setEditDesc] = useState("");
+  const [editPhase, setEditPhase] = useState("Not Started");
+  
   const commentsEndRef = useRef(null);
 
   const phases = ["Not Started", "In Development", "Testing", "Review", "Completed"];
@@ -20,6 +25,16 @@ export default function KanbanBoard({ projectId, token, user, project }) {
   useEffect(() => {
     fetchCards();
   }, [projectId]);
+
+  // Sync edit states when a card is selected
+  useEffect(() => {
+    if (selectedCard) {
+      setEditTitle(selectedCard.title || "");
+      setEditDesc(selectedCard.description || "");
+      setEditPhase(selectedCard.phase || "Not Started");
+      setIsEditing(false);
+    }
+  }, [selectedCard?.id]);
 
   // Scroll to bottom of comments thread
   useEffect(() => {
@@ -135,6 +150,32 @@ export default function KanbanBoard({ projectId, token, user, project }) {
     }
   };
 
+  const handleSaveEdit = async () => {
+    if (!editTitle.trim()) return;
+    try {
+      const res = await fetch(`http://localhost:8000/api/projects/${projectId}/cards/${selectedCard.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          title: editTitle.trim(),
+          description: editDesc.trim(),
+          phase: editPhase
+        })
+      });
+      if (res.ok) {
+        setIsEditing(false);
+        fetchCards();
+      } else {
+        alert("Failed to update ticket details");
+      }
+    } catch (err) {
+      alert("Save failed");
+    }
+  };
+
   const handleSendComment = async (e) => {
     e.preventDefault();
     if (!newComment.trim() || !selectedCard) return;
@@ -162,12 +203,16 @@ export default function KanbanBoard({ projectId, token, user, project }) {
     if (!selectedCard) return;
     setIsAiLoading(true);
 
+    const localModel = localStorage.getItem(`project_model_${projectId}`);
+
     try {
       const res = await fetch(`http://localhost:8000/api/projects/${projectId}/cards/${selectedCard.id}/ai-response`, {
         method: "POST",
         headers: {
+          "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
-        }
+        },
+        body: JSON.stringify({ current_model: localModel || "" })
       });
 
       if (res.ok) {
@@ -194,110 +239,185 @@ export default function KanbanBoard({ projectId, token, user, project }) {
     }
   };
 
-  // If a card is clicked, show Card Details view in Board Tab
+  // If a card is clicked, show Card Details view in a Single-Column Forum Thread Layout
   if (selectedCard) {
+    const creationComment = selectedCard.comments && selectedCard.comments[0];
+    const authorName = creationComment ? creationComment.author : project.author;
+
     return (
-      <div className="card-details-container">
-        {/* Left Side: Ticket details */}
-        <div className="card-details-left">
-          <div>
-            <button className="back-home-btn" onClick={() => setSelectedCard(null)} style={{ marginBottom: "1rem" }}>
-              <ArrowLeft size={14} /> Go Back to Board
-            </button>
-            
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div>
-                <span className={`user-role-badge ${selectedCard.phase.toLowerCase().replace(" ", "_")}`} style={{ display: "inline-block", marginBottom: "0.5rem" }}>
-                  {selectedCard.phase}
-                </span>
-                <h1 className="pane-title" style={{ fontSize: "1.75rem" }}>{selectedCard.title}</h1>
-              </div>
-              <button 
-                className="back-home-btn" 
-                style={{ color: "var(--error)", borderColor: "var(--error)" }}
-                onClick={() => handleDeleteCard(selectedCard.id)}
-              >
-                <Trash2 size={14} /> Delete Ticket
-              </button>
+      <div className="forum-thread-container">
+        {/* Sub-Header Back trigger */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.5rem" }}>
+          <button className="back-home-btn" onClick={() => setSelectedCard(null)}>
+            <ArrowLeft size={14} /> Back to Board View
+          </button>
+        </div>
+
+        {/* PM style Ticket top bar card */}
+        <div className="glass-card ticket-header-card">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem" }}>
+            <div style={{ flex: 1 }}>
+              {isEditing ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                  <input
+                    type="text"
+                    className="form-input"
+                    style={{ paddingLeft: "1rem", fontSize: "1.25rem", fontWeight: "600" }}
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                  />
+                  <select
+                    className="form-input"
+                    style={{ paddingLeft: "1rem", width: "auto" }}
+                    value={editPhase}
+                    onChange={(e) => setEditPhase(e.target.value)}
+                  >
+                    {phases.map(p => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap", marginBottom: "0.5rem" }}>
+                    <span className={`user-role-badge ${selectedCard.phase.toLowerCase().replace(" ", "_")}`}>
+                      {selectedCard.phase}
+                    </span>
+                    <span style={{ fontSize: "0.85rem", color: "var(--text-muted)", fontWeight: "500" }}>
+                      TICKET-#{selectedCard.id.substring(18).toUpperCase()}
+                    </span>
+                  </div>
+                  <h1 className="pane-title" style={{ fontSize: "1.75rem", marginBottom: 0 }}>{selectedCard.title}</h1>
+                </>
+              )}
             </div>
-            
-            <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginTop: "0.5rem" }}>
-              Created: {selectedCard.created_at ? new Date(selectedCard.created_at).toLocaleString() : "Recently"}
-            </p>
+
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              {isEditing ? (
+                <>
+                  <button className="btn btn-primary" style={{ width: "auto", padding: "0.5rem 1rem" }} onClick={handleSaveEdit}>
+                    Save
+                  </button>
+                  <button className="modal-btn-cancel" style={{ padding: "0.5rem 1rem" }} onClick={() => setIsEditing(false)}>
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button className="back-home-btn" onClick={() => setIsEditing(true)}>
+                  Edit Ticket
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="glass-card" style={{ padding: "1.5rem", marginTop: "1rem" }}>
-            <h3 style={{ fontSize: "1.05rem", fontWeight: "600", marginBottom: "0.5rem" }}>Description</h3>
-            <p style={{ fontSize: "0.95rem", color: "var(--text-secondary)", lineHeight: "1.6", whiteSpace: "pre-wrap" }}>
-              {selectedCard.description || "No description provided."}
-            </p>
+          {/* Ticket Metadata Row */}
+          <div className="ticket-meta-row">
+            <div className="ticket-meta-item">
+              <User size={14} />
+              <span>Created by <strong>@{authorName}</strong></span>
+            </div>
+            <div className="ticket-meta-item">
+              <Calendar size={14} />
+              <span>Created <strong>{selectedCard.created_at ? new Date(selectedCard.created_at).toLocaleString() : "Recently"}</strong></span>
+            </div>
+            <div className="ticket-meta-item">
+              <Clock size={14} />
+              <span>Updated <strong>{selectedCard.updated_at ? new Date(selectedCard.updated_at).toLocaleDateString() : "Recently"}</strong></span>
+            </div>
+          </div>
+
+          {/* Original Post (Description) */}
+          <div style={{ marginTop: "0.5rem" }}>
+            <h4 style={{ fontSize: "0.85rem", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: "0.5rem" }}>Description</h4>
+            {isEditing ? (
+              <textarea
+                className="form-input"
+                rows={5}
+                style={{ paddingLeft: "1rem", height: "auto", resize: "vertical", fontFamily: "inherit" }}
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+              />
+            ) : (
+              <p style={{ fontSize: "0.95rem", color: "var(--text-secondary)", lineHeight: "1.6", whiteSpace: "pre-wrap" }}>
+                {selectedCard.description || "No description provided."}
+              </p>
+            )}
           </div>
         </div>
 
-        {/* Right Side: Conversation Thread */}
-        <div className="card-details-right-thread">
-          <div className="thread-header">
-            <span style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <MessageSquare size={16} /> Discussion Thread
-            </span>
+        {/* Sequential Replies Section (Forum Thread Style) */}
+        <div className="forum-replies-section">
+          <h3 style={{ fontSize: "1.1rem", fontWeight: "600", color: "var(--text-primary)" }}>
+            Replies ({selectedCard.comments ? selectedCard.comments.length : 0})
+          </h3>
+
+          {selectedCard.comments && selectedCard.comments.length === 0 ? (
+            <div className="forum-reply-card" style={{ textAlign: "center", color: "var(--text-muted)" }}>
+              No discussions yet. Post a comment or generate an AI response below.
+            </div>
+          ) : (
+            selectedCard.comments.map(c => {
+              const isAi = c.is_ai_response;
+              return (
+                <div key={c.comment_id} className={`forum-reply-card ${isAi ? "ai-reply" : ""}`}>
+                  <div className="forum-reply-header">
+                    <strong style={{ color: isAi ? "var(--accent)" : "var(--text-primary)" }}>
+                      {isAi ? "AI Assistant" : `@${c.author}`}
+                    </strong>
+                    <span>{new Date(c.timestamp).toLocaleString()}</span>
+                  </div>
+                  <div style={{ fontSize: "0.9rem", color: "var(--text-secondary)", whiteSpace: "pre-wrap", lineHeight: "1.5" }}>
+                    {c.text}
+                  </div>
+                </div>
+              );
+            })
+          )}
+
+          {isAiLoading && (
+            <div className="forum-reply-card ai-reply" style={{ opacity: 0.7 }}>
+              <div className="forum-reply-header">
+                <strong>AI Assistant</strong>
+                <span>Thinking...</span>
+              </div>
+              <div style={{ fontSize: "0.9rem", color: "var(--text-muted)" }}>
+                Generating response based on input files, description guidelines, and model defaults...
+              </div>
+            </div>
+          )}
+          <div ref={commentsEndRef} />
+        </div>
+
+        {/* Forum Bottom Thread Controls */}
+        <div className="forum-bottom-controls">
+          <div className="forum-options-row">
             <button 
               className="btn btn-secondary" 
-              style={{ width: "auto", display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.8rem", padding: "0.4rem 0.75rem" }}
+              style={{ width: "auto", display: "flex", alignItems: "center", gap: "0.35rem", fontSize: "0.85rem", padding: "0.5rem 1rem" }}
               onClick={handleGenerateAiResponse}
               disabled={isAiLoading}
             >
-              <Sparkles size={12} /> {isAiLoading ? "Thinking..." : "Generate AI Response"}
+              <Sparkles size={14} /> {isAiLoading ? "Thinking..." : "Generate AI Response"}
+            </button>
+            <button 
+              className="back-home-btn" 
+              style={{ color: "var(--error)", borderColor: "var(--error)", background: "none" }}
+              onClick={() => handleDeleteCard(selectedCard.id)}
+            >
+              <Trash2 size={14} style={{ display: "inline", marginRight: "0.25rem" }} /> Delete Ticket
             </button>
           </div>
 
-          <div className="thread-messages">
-            {selectedCard.comments && selectedCard.comments.length === 0 ? (
-              <p style={{ textAlign: "center", color: "var(--text-muted)", fontSize: "0.85rem", margin: "auto" }}>
-                No discussions yet. Post a comment or ask AI to write one!
-              </p>
-            ) : (
-              selectedCard.comments.map(c => {
-                const isSelf = c.author === user.username;
-                const isAi = c.is_ai_response;
-                let msgClass = "";
-                if (isSelf) msgClass = "self";
-                else if (isAi) msgClass = "ai";
-                
-                return (
-                  <div key={c.comment_id} className={`thread-msg ${msgClass}`}>
-                    <div className="thread-msg-meta">
-                      <strong style={{ color: isAi ? "var(--accent)" : "var(--text-primary)" }}>
-                        {isAi ? "AI Assistant" : `@${c.author}`}
-                      </strong>
-                      <span>{new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                    <div className="thread-msg-text">{c.text}</div>
-                  </div>
-                );
-              })
-            )}
-            {isAiLoading && (
-              <div className="thread-msg ai" style={{ opacity: 0.7 }}>
-                <div className="thread-msg-meta">
-                  <strong>AI Assistant</strong>
-                  <span>Thinking...</span>
-                </div>
-                <div className="thread-msg-text">Generating OpenRouter response based on project files...</div>
-              </div>
-            )}
-            <div ref={commentsEndRef} />
-          </div>
-
-          <form onSubmit={handleSendComment} className="thread-input-area">
+          <form onSubmit={handleSendComment} className="thread-input-area" style={{ borderRadius: "12px", border: "1px solid var(--border-color)" }}>
             <div className="thread-input-row">
               <input 
                 type="text" 
                 className="thread-text-input" 
-                placeholder="Reply to thread..."
+                placeholder="Post a reply in this thread..."
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
               />
-              <button type="submit" className="btn btn-primary" style={{ width: "40px", padding: "0.5rem", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <button type="submit" className="btn btn-primary" style={{ width: "48px", height: "38px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <Send size={16} />
               </button>
             </div>

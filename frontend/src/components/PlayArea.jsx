@@ -16,6 +16,7 @@ export default function PlayArea({ projectId, token, project, onUpdateProject })
   const [activeFile, setActiveFile] = useState(null);
   const [editorContent, setEditorContent] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedFileIds, setSelectedFileIds] = useState([]);
 
   // OpenRouter Settings states
   const [favoriteModels, setFavoriteModels] = useState([]);
@@ -69,6 +70,10 @@ export default function PlayArea({ projectId, token, project, onUpdateProject })
     setDefaultModel(s.default_openrouter_model || "");
     setReasoningLength(s.reasoning_length || "Minimal");
     setOutputLength(s.output_length || "Medium");
+    
+    if (s.default_openrouter_model) {
+      localStorage.setItem(`project_model_${projectId}`, s.default_openrouter_model);
+    }
 
     const prompts = s.prompts || {};
     setContinueSystemPrompt(prompts.continue_system_prompt || "");
@@ -336,6 +341,69 @@ export default function PlayArea({ projectId, token, project, onUpdateProject })
     setCollapsedFolders(prev => ({ ...prev, [folderId]: !prev[folderId] }));
   };
 
+  const handleToggleFileSelection = (e, fileId) => {
+    e.stopPropagation();
+    setSelectedFileIds(prev => 
+      prev.includes(fileId) ? prev.filter(id => id !== fileId) : [...prev, fileId]
+    );
+  };
+
+  const handlePlanPrompt = async () => {
+    setIsSaving(true);
+    try {
+      const res = await fetch(`http://localhost:8000/api/projects/${projectId}/generate-prompt`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setEditorContent(data.prompt);
+        await saveFileContent("continue_system_prompt", data.prompt);
+        alert("System Prompt generated and updated!");
+      } else {
+        alert("Failed to generate prompt from AI.");
+      }
+    } catch (e) {
+      alert("Error generating prompt.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleContinueStory = async () => {
+    if (!activeFile) {
+      alert("Please select an active file to continue story.");
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const res = await fetch(`http://localhost:8000/api/projects/${projectId}/continue-story`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          active_file_id: activeFile.id,
+          selected_file_ids: selectedFileIds
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setEditorContent(data.new_content);
+        setSelectedFileIds([]);
+        alert(`Continuation completed! Detected Chapter: ${data.detected_chapter}. Kanban card created.`);
+      } else {
+        const err = await res.json();
+        alert(err.detail || "Story continuation failed");
+      }
+    } catch (e) {
+      alert("Error continuing story.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // Action Buttons handlers -> Show Custom Modal Alert
   const triggerActionModal = (actionName) => {
     setAlertTitle(`${actionName} Action Executed`);
@@ -428,6 +496,16 @@ export default function PlayArea({ projectId, token, project, onUpdateProject })
                       style={{ paddingLeft: f.is_dir ? "0.5rem" : "1.5rem" }}
                     >
                       <div className="file-title-wrap">
+                        {!f.is_dir && (
+                          <input 
+                            type="checkbox" 
+                            className="file-checkbox" 
+                            checked={selectedFileIds.includes(f.path)}
+                            onChange={(e) => handleToggleFileSelection(e, f.path)}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ marginRight: "0.4rem", cursor: "pointer" }}
+                          />
+                        )}
                         {f.is_dir ? <Folder size={14} style={{ color: "var(--primary)" }} /> : <File size={14} />}
                         <span>{f.name}</span>
                       </div>
@@ -485,7 +563,14 @@ export default function PlayArea({ projectId, token, project, onUpdateProject })
                                 onClick={() => handleSelectFile(file.id, file.name, false)}
                               >
                                 <div className="file-title-wrap">
-                                  <input type="checkbox" className="file-checkbox" onClick={(e) => e.stopPropagation()} />
+                                  <input 
+                                    type="checkbox" 
+                                    className="file-checkbox" 
+                                    checked={selectedFileIds.includes(file.id)}
+                                    onChange={(e) => handleToggleFileSelection(e, file.id)}
+                                    onClick={(e) => e.stopPropagation()} 
+                                    style={{ cursor: "pointer" }}
+                                  />
                                   <File size={12} />
                                   <span>{file.name}</span>
                                 </div>
@@ -599,7 +684,10 @@ export default function PlayArea({ projectId, token, project, onUpdateProject })
                   className="form-input" 
                   style={{ paddingLeft: "1rem" }}
                   value={defaultModel}
-                  onChange={(e) => setDefaultModel(e.target.value)}
+                  onChange={(e) => {
+                    setDefaultModel(e.target.value);
+                    localStorage.setItem(`project_model_${projectId}`, e.target.value);
+                  }}
                 >
                   <option value="">Select Default...</option>
                   {favoriteModels.map(m => (
@@ -657,11 +745,26 @@ export default function PlayArea({ projectId, token, project, onUpdateProject })
             Active: <strong>{activeFile ? activeFile.name : "None selected"}</strong>
           </span>
           
-          <button className="table-action-btn" onClick={() => triggerActionModal("Continue")}>Continue</button>
+          {project?.type === "Story Creation" ? (
+            <button className="table-action-btn" onClick={handleContinueStory} disabled={isSaving}>Continue</button>
+          ) : (
+            <button className="table-action-btn" onClick={() => triggerActionModal("Continue")}>Continue</button>
+          )}
           <button className="table-action-btn" onClick={() => triggerActionModal("Revise")}>Revise</button>
           <button className="table-action-btn" onClick={() => triggerActionModal("Plan Chapter")}>Plan Chapter</button>
           <button className="table-action-btn" onClick={() => triggerActionModal("Create Scene Beats")}>Create Scene Beats</button>
           <button className="table-action-btn" onClick={() => triggerActionModal("Expand Chapter")}>Expand Chapter</button>
+          
+          {activeFile?.id === "continue_system_prompt" && (
+            <button 
+              className="table-action-btn" 
+              style={{ backgroundColor: "var(--accent)", color: "white" }} 
+              onClick={handlePlanPrompt}
+              disabled={isSaving}
+            >
+              Plan Prompt
+            </button>
+          )}
 
           {activeFile && (
             <button 

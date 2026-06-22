@@ -64,6 +64,16 @@ class TestProjectsRouter(unittest.TestCase):
         db["kanban_cards"].delete_many({})
 
     def test_project_crud(self):
+        # Seed test user settings with dummy OpenRouter key
+        from backend.app.secrets_manager import encrypt_data
+        db["user_settings"].delete_many({"username": "test_author"})
+        db["user_settings"].insert_one({
+            "username": "test_author",
+            "openrouter_api_key": encrypt_data("sk-or-test-key-12345"),
+            "google_ai_key": "",
+            "updated_at": datetime.datetime.utcnow()
+        })
+
         headers = {"Authorization": f"Bearer {self.author_token}"}
         
         # Create Project
@@ -129,11 +139,60 @@ class TestProjectsRouter(unittest.TestCase):
         self.assertEqual(res_card.status_code, 200)
         card_id = res_card.json()["id"]
         
+        # Verify card encryption in MongoDB
+        db_card = db["kanban_cards"].find_one({"_id": ObjectId(card_id)})
+        self.assertIsNotNone(db_card)
+        self.assertNotEqual(db_card["title"], "Write draft")
+        self.assertEqual(decrypt_data(db_card["title"]), "Write draft")
+
         # Drag Card (Update Phase)
         drag_payload = {"phase": "In Development"}
         res_drag = self.client.put(f"/api/projects/{project_id}/cards/{card_id}", json=drag_payload, headers=headers)
         self.assertEqual(res_drag.status_code, 200)
         self.assertEqual(res_drag.json()["phase"], "In Development")
+
+        # Add card comment
+        comment_payload = {"text": "A test comment"}
+        res_comment = self.client.post(f"/api/projects/{project_id}/cards/{card_id}/comments", json=comment_payload, headers=headers)
+        self.assertEqual(res_comment.status_code, 200)
+        
+        # Verify comment encryption
+        db_card_updated = db["kanban_cards"].find_one({"_id": ObjectId(card_id)})
+        self.assertNotEqual(db_card_updated["comments"][0]["text"], "A test comment")
+        self.assertEqual(decrypt_data(db_card_updated["comments"][0]["text"]), "A test comment")
+
+        # Generate prompt
+        res_prompt = self.client.post(f"/api/projects/{project_id}/generate-prompt", headers=headers)
+        self.assertEqual(res_prompt.status_code, 200)
+        self.assertIn("prompt", res_prompt.json())
+
+        # Insert a test log directly into DB for deletion testing
+        from backend.app.secrets_manager import encrypt_data
+        test_log = {
+            "project_id": ObjectId(project_id),
+            "username": "test_author",
+            "model_used": "google/gemini-2.5-flash",
+            "input_tokens": 100,
+            "output_tokens": 200,
+            "cost": 0.0001,
+            "finish_reason": "stop",
+            "timestamp": "2026-06-22T10:00:00Z",
+            "request_text": encrypt_data("test prompt"),
+            "output_text": encrypt_data("test response")
+        }
+        res_log_insert = db["ai_logs"].insert_one(test_log)
+        log_id = str(res_log_insert.inserted_id)
+        
+        # Fetch logs and verify decryption
+        res_logs_list = self.client.get(f"/api/projects/{project_id}/logs", headers=headers)
+        self.assertEqual(res_logs_list.status_code, 200)
+        self.assertTrue(len(res_logs_list.json()) >= 1)
+        self.assertEqual(res_logs_list.json()[0]["request_text"], "test prompt")
+        self.assertEqual(res_logs_list.json()[0]["output_text"], "test response")
+        
+        # Delete log
+        res_del = self.client.delete(f"/api/projects/{project_id}/logs/{log_id}", headers=headers)
+        self.assertEqual(res_del.status_code, 200)
 
         # Update Project Settings
         settings_payload = {

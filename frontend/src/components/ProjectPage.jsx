@@ -8,6 +8,7 @@ export default function ProjectPage({ projectId, token, user, onGoBack }) {
   const [project, setProject] = useState(null);
   const [activeTab, setActiveTab] = useState("board"); // "board" | "play" | "logs"
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedCard, setSelectedCard] = useState(null);
   
   // Settings Modal State
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -121,12 +122,20 @@ export default function ProjectPage({ projectId, token, user, onGoBack }) {
 
   const isAuthorOrAdmin = user.role === "administrator" || project.author === user.username;
 
+  const handleBack = () => {
+    if (activeTab === "board" && selectedCard) {
+      setSelectedCard(null);
+    } else {
+      onGoBack();
+    }
+  };
+
   return (
     <div className="project-container">
       {/* Sub Header */}
       <div className="project-navbar">
         <div className="project-info">
-          <button className="back-home-btn" onClick={onGoBack} style={{ padding: "0.4rem 0.75rem" }}>
+          <button className="back-home-btn" onClick={handleBack} style={{ padding: "0.4rem 0.75rem" }}>
             <ArrowLeft size={16} /> Back
           </button>
           <div>
@@ -176,7 +185,14 @@ export default function ProjectPage({ projectId, token, user, onGoBack }) {
       {/* Body Tab mount point */}
       <div className="project-body">
         {activeTab === "board" && (
-          <KanbanBoard projectId={projectId} token={token} user={user} project={project} />
+          <KanbanBoard 
+            projectId={projectId} 
+            token={token} 
+            user={user} 
+            project={project} 
+            selectedCard={selectedCard}
+            setSelectedCard={setSelectedCard}
+          />
         )}
         
         {activeTab === "play" && (

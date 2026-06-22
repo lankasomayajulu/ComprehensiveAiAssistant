@@ -71,20 +71,21 @@ async def change_my_password(payload: PasswordChange, current_user: dict = Depen
 @router.get("/me/settings", response_model=UserSettingsResponse)
 async def get_my_settings(current_user: dict = Depends(get_current_user)):
     """
-    Retrieve OpenRouter and Google AI API keys for the current user.
+    Retrieve OpenRouter, Google AI API keys, and theme settings for the current user.
     """
     settings = settings_collection.find_one({"username": current_user["username"]})
     if not settings:
-        return {"openrouter_api_key": "", "google_ai_key": ""}
+        return {"openrouter_api_key": "", "google_ai_key": "", "theme": "dark"}
     return {
         "openrouter_api_key": decrypt_data(settings.get("openrouter_api_key", "")),
-        "google_ai_key": decrypt_data(settings.get("google_ai_key", ""))
+        "google_ai_key": decrypt_data(settings.get("google_ai_key", "")),
+        "theme": settings.get("theme", "dark")
     }
 
 @router.put("/me/settings")
 async def update_my_settings(payload: UserSettingsUpdate, current_user: dict = Depends(get_current_user)):
     """
-    Save or update API keys in the settings collection.
+    Save or update API keys and theme settings in the settings collection.
     """
     encrypted_openrouter = encrypt_data(payload.openrouter_api_key or "")
     encrypted_google = encrypt_data(payload.google_ai_key or "")
@@ -95,6 +96,7 @@ async def update_my_settings(payload: UserSettingsUpdate, current_user: dict = D
             "$set": {
                 "openrouter_api_key": encrypted_openrouter,
                 "google_ai_key": encrypted_google,
+                "theme": payload.theme or "dark",
                 "updated_at": datetime.datetime.now(datetime.timezone.utc)
             }
         },
